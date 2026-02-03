@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 绘图终极百科 V3.0 (海量词库版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        html {
+            scroll-behavior: smooth;
+            scroll-padding-top: 180px;
+        }
+        body {
+            background-color: #FDFBF7;
+            color: #333;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .keyword-chip {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid #E5E7EB;
+        }
+        .keyword-chip:hover {
+            transform: translateY(-2px);
+            border-color: #Cfb898;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .keyword-chip:active {
+            transform: scale(0.98);
+        }
+        .nav-btn-active {
+            background-color: #8B7355 !important;
+            color: white !important;
+            box-shadow: 0 4px 6px rgba(139, 115, 85, 0.3);
+        }
+        .chart-container {
+            position: relative;
+            height: 160px;
+            width: 100%;
+        }
+        /* Fade in animation for grids */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+    <!-- Chosen Palette: Warm Neutrals & Almond -->
+    <!-- Structure: V2.1 Layout (Stable) + Massive Data Injection -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+</head>
+<body class="font-sans antialiased">
+
+    <!-- 1. Header -->
+    <header class="bg-white border-b border-gray-200 py-4">
+        <div class="container mx-auto px-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-[#8B7355] rounded-lg flex items-center justify-center text-white text-lg shadow-sm">🎨</div>
+                <div>
+                    <h1 class="text-lg font-bold text-gray-900 tracking-tight leading-none">Prompt Encyclopedia <span class="text-[#Cfb898] font-normal">V3.0</span></h1>
+                    <p class="text-xs text-gray-500 mt-0.5">Ultimate Vocabulary Edition</p>
+                </div>
+            </div>
+            <div class="text-xs text-gray-400 font-mono hidden sm:block">Total Tokens: <span id="total-count" class="font-bold text-[#8B7355]">...</span></div>
+        </div>
+    </header>
+
+    <!-- 2. Sticky Builder Bar -->
+    <div id="builder-bar" class="sticky top-0 z-50 bg-[#FDFBF7]/95 backdrop-blur-sm border-b border-[#E5E0D8] shadow-sm transition-all duration-300">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex flex-col sm:flex-row gap-3 items-center">
+                <div class="relative w-full group">
+                    <div id="prompt-display" class="w-full min-h-[50px] max-h-[120px] overflow-y-auto py-2.5 px-3 bg-white rounded-lg border border-gray-300 text-gray-700 font-mono text-sm leading-6 break-words shadow-inner focus-within:ring-2 focus-within:ring-[#Cfb898] transition">
+                        <span class="text-gray-400 italic select-none flex items-center h-full">👇 点击下方海量词汇，此处自动组装咒语...</span>
+                    </div>
+                </div>
+                <div class="flex gap-2 w-full sm:w-auto shrink-0">
+                    <button onclick="clearPrompts()" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 border border-transparent transition font-medium">清空</button>
+                    <button onclick="copyPrompts()" class="flex-1 sm:flex-none px-5 py-2 rounded-lg text-sm font-bold text-white bg-gray-900 hover:bg-black shadow-lg hover:-translate-y-0.5 transition flex items-center justify-center gap-2"><span>📋 复制</span></button>
+                </div>
+            </div>
+        </div>
+        <!-- Mobile Nav -->
+        <div class="lg:hidden border-t border-gray-200 bg-white overflow-x-auto hide-scrollbar">
+            <div class="flex px-4 py-2 gap-2 min-w-max" id="mobile-nav-container"></div>
+        </div>
+    </div>
+
+    <!-- 3. Main Content -->
+    <main class="container mx-auto px-4 py-8 max-w-7xl">
+        <div class="flex flex-col lg:flex-row gap-8 relative">
+            
+            <!-- Desktop Sidebar -->
+            <aside class="hidden lg:block w-64 shrink-0 relative">
+                <div class="sticky top-[140px] space-y-6">
+                    <nav class="space-y-1 bg-white rounded-xl shadow-sm border border-gray-100 p-2" id="desktop-nav-container"></nav>
+                    <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 text-center">Prompt 结构建议</h4>
+                        <div class="chart-container"><canvas id="miniChart"></canvas></div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Content Area -->
+            <div class="flex-1 min-w-0" id="content-area">
+                <div class="bg-white p-6 rounded-2xl border border-[#E5E0D8] shadow-sm mb-8">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <div class="flex items-center gap-3 mb-1">
+                                <span id="active-cat-icon" class="text-3xl">💎</span>
+                                <h2 id="active-cat-title" class="text-2xl font-bold text-gray-800">画质与清晰度</h2>
+                            </div>
+                            <p id="active-cat-desc" class="text-gray-600 text-sm">...</p>
+                        </div>
+                        <div class="bg-[#F9F7F2] px-4 py-3 rounded-lg border border-[#EAE5D9] max-w-xs w-full md:w-auto">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-[#Cfb898]"></span>
+                                <span class="text-[#8B7355] text-xs font-bold uppercase">Pro Tip</span>
+                            </div>
+                            <p id="active-cat-tip" class="text-xs text-gray-600 leading-relaxed">...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="keywords-container" class="space-y-10"></div>
+                <div class="h-20"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Logic -->
+    <script>
+        // --- 3.0 MASSIVE VOCABULARY DATA ---
+        const promptData = {
+            quality: {
+                icon: "💎",
+                title: "画质与渲染 (Quality)",
+                desc: "决定画面的精细度、分辨率和渲染风格。从这里开始构建高质量的基石。",
+                tip: "SDXL 请尝试 'Score_9, Score_8_up'；MJ V6 默认画质已很高，但 'Style raw' 更真实。",
+                keywords: [
+                    // Core
+                    { sub: "通用核心 (Core)", en: "Masterpiece", cn: "杰作(最高权重)" },
+                    { sub: "通用核心 (Core)", en: "Best quality", cn: "最佳质量" },
+                    { sub: "通用核心 (Core)", en: "High quality", cn: "高质量" },
+                    { sub: "通用核心 (Core)", en: "Authentic", cn: "真实的" },
+                    { sub: "通用核心 (Core)", en: "Award winning", cn: "获奖作品" },
+                    
+                    // Resolution
+                    { sub: "分辨率 (Resolution)", en: "8k resolution", cn: "8K超清" },
+                    { sub: "分辨率 (Resolution)", en: "4k", cn: "4K" },
+                    { sub: "分辨率 (Resolution)", en: "UHD", cn: "超高清" },
+                    { sub: "分辨率 (Resolution)", en: "RAW photo", cn: "RAW原片(未压缩)" },
+                    { sub: "分辨率 (Resolution)", en: "Absurdres", cn: "荒谬的高分辨率(SD)" },
+                    { sub: "分辨率 (Resolution)", en: "Gigapixel", cn: "十亿像素" },
+                    { sub: "分辨率 (Resolution)", en: "32k", cn: "32K(夸张描述)" },
+                    
+                    // Detail
+                    { sub: "细节描述 (Detail)", en: "Hyper-detailed", cn: "超细节" },
+                    { sub: "细节描述 (Detail)", en: "Intricate details", cn: "错综复杂的细节" },
+                    { sub: "细节描述 (Detail)", en: "Insane details", cn: "疯狂的细节" },
+                    { sub: "细节描述 (Detail)", en: "Sharp focus", cn: "清晰聚焦" },
+                    { sub: "细节描述 (Detail)", en: "Perfect composition", cn: "完美构图" },
+                    { sub: "细节描述 (Detail)", en: "Highly detailed", cn: "高度详细" },
+                    
+                    // Digital Render
+                    { sub: "数字渲染 (Render)", en: "Unreal Engine 5", cn: "虚幻5引擎" },
+                    { sub: "数字渲染 (Render)", en: "Octane render", cn: "Octane渲染" },
+                    { sub: "数字渲染 (Render)", en: "V-Ray", cn: "V-Ray渲染" },
+                    { sub: "数字渲染 (Render)", en: "Ray tracing", cn: "光线追踪" },
+                    { sub: "数字渲染 (Render)", en: "Global illumination", cn: "全局光照" },
+                    { sub: "数字渲染 (Render)", en: "Physically based rendering", cn: "PBR物理渲染" },
+                    { sub: "数字渲染 (Render)", en: "Redshift render", cn: "Redshift渲染" },
+                    { sub: "数字渲染 (Render)", en: "Arnold render", cn: "Arnold渲染" },
+                    
+                    // Texture
+                    { sub: "材质纹理 (Texture)", en: "Detailed texture", cn: "详细纹理" },
+                    { sub: "材质纹理 (Texture)", en: "Bump map", cn: "凹凸贴图" },
+                    { sub: "材质纹理 (Texture)", en: "Roughness", cn: "粗糙度" },
+                    { sub: "材质纹理 (Texture)", en: "Subsurface scattering", cn: "次表面散射(3D)" }
+                ]
+            },
+            lighting: {
+                icon: "💡",
+                title: "光影艺术 (Lighting)",
+                desc: "光线决定情绪。尝试混合 'Directional'（方向）和 'Ambient'（环境）词汇。",
+                tip: "‘Volumetric lighting’ (体积光) + ‘Dust particles’ (灰尘微粒) 能创造惊人的空间感。",
+                keywords: [
+                    // Natural Time
+                    { sub: "自然时段 (Time)", en: "Golden hour", cn: "黄金时刻(暖黄)" },
+                    { sub: "自然时段 (Time)", en: "Blue hour", cn: "蓝调时刻(冷蓝)" },
+                    { sub: "自然时段 (Time)", en: "High noon", cn: "正午强光" },
+                    { sub: "自然时段 (Time)", en: "Sunset", cn: "日落" },
+                    { sub: "自然时段 (Time)", en: "Sunrise", cn: "日出" },
+                    { sub: "自然时段 (Time)", en: "Night", cn: "夜晚" },
+                    { sub: "自然时段 (Time)", en: "Overcast", cn: "阴天漫射光" },
+                    
+                    // Natural Type
+                    { sub: "自然光型 (Type)", en: "Natural lighting", cn: "自然光" },
+                    { sub: "自然光型 (Type)", en: "Sunlight", cn: "日光" },
+                    { sub: "自然光型 (Type)", en: "Moonlight", cn: "月光" },
+                    { sub: "自然光型 (Type)", en: "Starlight", cn: "星光" },
+                    { sub: "自然光型 (Type)", en: "Dappled sunlight", cn: "斑驳树影光" },
+                    { sub: "自然光型 (Type)", en: "Crepuscular rays", cn: "云隙光" },
+                    
+                    // Studio & Art
+                    { sub: "专业布光 (Studio)", en: "Studio lighting", cn: "影棚布光" },
+                    { sub: "专业布光 (Studio)", en: "Softbox", cn: "柔光箱" },
+                    { sub: "专业布光 (Studio)", en: "Rim lighting", cn: "轮廓光(勾边)" },
+                    { sub: "专业布光 (Studio)", en: "Backlighting", cn: "逆光" },
+                    { sub: "专业布光 (Studio)", en: "Butterfly lighting", cn: "蝴蝶光(美颜)" },
+                    { sub: "专业布光 (Studio)", en: "Rembrandt lighting", cn: "伦勃朗光" },
+                    { sub: "专业布光 (Studio)", en: "Split lighting", cn: "分割光(阴阳脸)" },
+                    { sub: "专业布光 (Studio)", en: "Hard lighting", cn: "硬光(强阴影)" },
+                    { sub: "专业布光 (Studio)", en: "Soft lighting", cn: "柔光" },
+                    
+                    // Atmosphere
+                    { sub: "氛围光效 (Atmos)", en: "Cinematic lighting", cn: "电影级光效" },
+                    { sub: "氛围光效 (Atmos)", en: "Volumetric lighting", cn: "体积光" },
+                    { sub: "氛围光效 (Atmos)", en: "God rays", cn: "耶稣光" },
+                    { sub: "氛围光效 (Atmos)", en: "Tyndall effect", cn: "丁达尔效应" },
+                    { sub: "氛围光效 (Atmos)", en: "Moody lighting", cn: "情绪化照明" },
+                    { sub: "氛围光效 (Atmos)", en: "Atmospheric lighting", cn: "大气光效" },
+                    
+                    // Creative/Color
+                    { sub: "创意色彩 (Creative)", en: "Neon lighting", cn: "霓虹灯" },
+                    { sub: "创意色彩 (Creative)", en: "Bioluminescence", cn: "生物荧光" },
+                    { sub: "创意色彩 (Creative)", en: "Cyberpunk lighting", cn: "赛博朋克光" },
+                    { sub: "创意色彩 (Creative)", en: "Glow in the dark", cn: "夜光" },
+                    { sub: "创意色彩 (Creative)", en: "Firelight", cn: "火光" },
+                    { sub: "创意色彩 (Creative)", en: "Candlelight", cn: "烛光" },
+                    { sub: "创意色彩 (Creative)", en: "Iridescent", cn: "彩虹/镭射光" }
+                ]
+            },
+            portrait: {
+                icon: "👩",
+                title: "人像精修 (Portrait)",
+                desc: "从皮肤纹理到微表情，打造有灵魂的人物。拒绝塑料感。",
+                tip: "尝试 'Imperfect skin' (不完美皮肤) 实际上会让 AI 人像更真实。",
+                keywords: [
+                    // Skin Quality
+                    { sub: "皮肤细节 (Skin)", en: "Detailed skin texture", cn: "详细皮肤纹理" },
+                    { sub: "皮肤细节 (Skin)", en: "Skin pores", cn: "毛孔细节" },
+                    { sub: "皮肤细节 (Skin)", en: "Subsurface scattering", cn: "皮肤通透感" },
+                    { sub: "皮肤细节 (Skin)", en: "Realistic skin", cn: "真实皮肤" },
+                    { sub: "皮肤细节 (Skin)", en: "Hyperrealistic skin", cn: "超写实皮肤" },
+                    { sub: "皮肤细节 (Skin)", en: "Goosebumps", cn: "鸡皮疙瘩" },
+                    { sub: "皮肤细节 (Skin)", en: "Visible veins", cn: "隐约的血管" },
+                    
+                    // Skin Marks (Realism)
+                    { sub: "皮肤特征 (Marks)", en: "Freckles", cn: "雀斑" },
+                    { sub: "皮肤特征 (Marks)", en: "Mole", cn: "痣" },
+                    { sub: "皮肤特征 (Marks)", en: "Beauty mark", cn: "美人痣" },
+                    { sub: "皮肤特征 (Marks)", en: "Acne marks", cn: "痘印(更真实)" },
+                    { sub: "皮肤特征 (Marks)", en: "Scars", cn: "疤痕" },
+                    { sub: "皮肤特征 (Marks)", en: "Sweat", cn: "汗水" },
+                    { sub: "皮肤特征 (Marks)", en: "Wet skin", cn: "湿润皮肤" },
+                    { sub: "皮肤特征 (Marks)", en: "Oily skin", cn: "油性皮肤" },
+                    
+                    // Skin Tone
+                    { sub: "肤色 (Tone)", en: "Pale skin", cn: "白皙皮肤" },
+                    { sub: "肤色 (Tone)", en: "Fair skin", cn: "浅色皮肤" },
+                    { sub: "肤色 (Tone)", en: "Tanned skin", cn: "古铜色/晒黑" },
+                    { sub: "肤色 (Tone)", en: "Dark skin", cn: "深色皮肤" },
+                    { sub: "肤色 (Tone)", en: "Porcelain skin", cn: "瓷白肌" },
+                    
+                    // Eyes
+                    { sub: "眼部 (Eyes)", en: "Detailed eyes", cn: "细节眼睛" },
+                    { sub: "眼部 (Eyes)", en: "Beautiful eyes", cn: "美丽的眼睛" },
+                    { sub: "眼部 (Eyes)", en: "Heterochromia", cn: "异色瞳" },
+                    { sub: "眼部 (Eyes)", en: "Catchlight", cn: "眼神光" },
+                    { sub: "眼部 (Eyes)", en: "Long eyelashes", cn: "长睫毛" },
+                    { sub: "眼部 (Eyes)", en: "Blue eyes", cn: "蓝眼" },
+                    { sub: "眼部 (Eyes)", en: "Green eyes", cn: "绿眼" },
+                    { sub: "眼部 (Eyes)", en: "Brown eyes", cn: "褐眼" },
+                    { sub: "眼部 (Eyes)", en: "Looking at viewer", cn: "直视镜头" },
+                    
+                    // Hair
+                    { sub: "发型 (Hair)", en: "Detailed hair", cn: "发丝细节" },
+                    { sub: "发型 (Hair)", en: "Messy hair", cn: "凌乱发型" },
+                    { sub: "发型 (Hair)", en: "Wet hair", cn: "湿发" },
+                    { sub: "发型 (Hair)", en: "Braids", cn: "辫子" },
+                    { sub: "发型 (Hair)", en: "Ponytail", cn: "马尾" },
+                    { sub: "发型 (Hair)", en: "Bob cut", cn: "波波头" },
+                    { sub: "发型 (Hair)", en: "Long hair", cn: "长发" },
+                    { sub: "发型 (Hair)", en: "Short hair", cn: "短发" },
+                    { sub: "发型 (Hair)", en: "Blonde hair", cn: "金发" },
+                    { sub: "发型 (Hair)", en: "Silver hair", cn: "银发" },
+                    { sub: "发型 (Hair)", en: "Black hair", cn: "黑发" },
+                    { sub: "发型 (Hair)", en: "Wavy hair", cn: "波浪卷" },
+                    
+                    // Lips & Makeup
+                    { sub: "妆容 (Makeup)", en: "Makeup", cn: "化妆" },
+                    { sub: "妆容 (Makeup)", en: "Lipstick", cn: "口红" },
+                    { sub: "妆容 (Makeup)", en: "Glossy lips", cn: "光泽嘴唇" },
+                    { sub: "妆容 (Makeup)", en: "Parted lips", cn: "微张嘴" },
+                    { sub: "妆容 (Makeup)", en: "Smokey eyes", cn: "烟熏妆" },
+                    { sub: "妆容 (Makeup)", en: "Natural makeup", cn: "裸妆" },
+                    
+                    // Expression
+                    { sub: "表情 (Face)", en: "Smile", cn: "微笑" },
+                    { sub: "表情 (Face)", en: "Grin", cn: "露齿笑" },
+                    { sub: "表情 (Face)", en: "Seductive smile", cn: "诱惑笑" },
+                    { sub: "表情 (Face)", en: "Expressionless", cn: "无表情/高冷" },
+                    { sub: "表情 (Face)", en: "Angry", cn: "生气" },
+                    { sub: "表情 (Face)", en: "Crying", cn: "哭泣" },
+                    { sub: "表情 (Face)", en: "Blush", cn: "脸红" },
+                    { sub: "表情 (Face)", en: "Surprised", cn: "惊讶" }
+                ]
+            },
+            style: {
+                icon: "🎨",
+                title: "风格与艺术 (Style)",
+                desc: "定义画面基调。包含您喜欢的 Y2K 和拼贴风格。",
+                tip: "Y2K 风格通常需要 'Holographic' (全息) 和 'Gradient' (渐变) 配合。",
+                keywords: [
+                    // User Favorite: Trendy
+                    { sub: "Y2K与潮流 (Trendy)", en: "Y2K aesthetic", cn: "千禧年风格" },
+                    { sub: "Y2K与潮流 (Trendy)", en: "Holographic", cn: "全息镭射" },
+                    { sub: "Y2K与潮流 (Trendy)", en: "Iridescent texture", cn: "彩虹光泽材质" },
+                    { sub: "Y2K与潮流 (Trendy)", en: "Collage art", cn: "拼贴艺术" },
+                    { sub: "Y2K与潮流 (Trendy)", en: "Mixed media", cn: "混合媒材" },
+                    { sub: "Y2K与潮流 (Trendy)", en: "Paper cutout", cn: "剪纸/纸片风" },
+                    { sub: "Y2K与潮流 (Trendy)", en: "Sticker art", cn: "贴纸艺术" },
+                    { sub: "Y2K与潮流 (Trendy)", en: "White outline", cn: "白边/描边" },
+                    { sub: "Y2K与潮流 (Trendy)", en: "Graffiti", cn: "涂鸦" },
+                    { sub: "Y2K与潮流 (Trendy)", en: "Glitch art", cn: "故障艺术" },
+                    { sub: "Y2K与潮流 (Trendy)", en: "Vaporwave", cn: "蒸汽波" },
+                    { sub: "Y2K与潮流 (Trendy)", en: "Acid graphics", cn: "酸性设计" },
+                    
+                    // Digital
+                    { sub: "数字艺术 (Digital)", en: "Anime", cn: "日系动漫" },
+                    { sub: "数字艺术 (Digital)", en: "Cyberpunk", cn: "赛博朋克" },
+                    { sub: "数字艺术 (Digital)", en: "Concept art", cn: "概念设计" },
+                    { sub: "数字艺术 (Digital)", en: "Matte painting", cn: "遮罩绘画(宏大场景)" },
+                    { sub: "数字艺术 (Digital)", en: "3D render", cn: "3D渲染" },
+                    { sub: "数字艺术 (Digital)", en: "Isometric", cn: "等距视角(2.5D)" },
+                    { sub: "数字艺术 (Digital)", en: "Low poly", cn: "低多边形" },
+                    { sub: "数字艺术 (Digital)", en: "Pixel art", cn: "像素画" },
+                    
+                    // Traditional
+                    { sub: "传统绘画 (Trad)", en: "Oil painting", cn: "油画" },
+                    { sub: "传统绘画 (Trad)", en: "Watercolor", cn: "水彩" },
+                    { sub: "传统绘画 (Trad)", en: "Sketch", cn: "素描" },
+                    { sub: "传统绘画 (Trad)", en: "Ink painting", cn: "水墨画" },
+                    { sub: "传统绘画 (Trad)", en: "Ukiyo-e", cn: "浮世绘" },
+                    { sub: "传统绘画 (Trad)", en: "Impressionism", cn: "印象派" },
+                    { sub: "传统绘画 (Trad)", en: "Surrealism", cn: "超现实主义" },
+                    { sub: "传统绘画 (Trad)", en: "Nouveau", cn: "新艺术运动(慕夏风)" },
+                    { sub: "传统绘画 (Trad)", en: "Gothic", cn: "哥特风格" },
+                    { sub: "传统绘画 (Trad)", en: "Steampunk", cn: "蒸汽朋克" }
+                ]
+            },
+            camera: {
+                icon: "📷",
+                title: "摄影硬核 (Camera)",
+                desc: "模拟真实相机。控制焦段、胶片型号和物理特性。",
+                tip: "人像推荐 85mm，风光推荐 Wide angle。‘Film grain’ 增加质感。",
+                keywords: [
+                    // Lens
+                    { sub: "镜头焦段 (Lens)", en: "85mm lens", cn: "85mm(人像皇冠)" },
+                    { sub: "镜头焦段 (Lens)", en: "50mm lens", cn: "50mm(标准人眼)" },
+                    { sub: "镜头焦段 (Lens)", en: "35mm lens", cn: "35mm(人文广角)" },
+                    { sub: "镜头焦段 (Lens)", en: "24mm lens", cn: "24mm(广角)" },
+                    { sub: "镜头焦段 (Lens)", en: "100mm lens", cn: "100mm(微距/人像)" },
+                    { sub: "镜头焦段 (Lens)", en: "200mm lens", cn: "200mm(长焦)" },
+                    { sub: "镜头焦段 (Lens)", en: "Wide angle", cn: "广角" },
+                    { sub: "镜头焦段 (Lens)", en: "Ultra wide angle", cn: "超广角" },
+                    { sub: "镜头焦段 (Lens)", en: "Telephoto lens", cn: "长焦镜头" },
+                    { sub: "镜头焦段 (Lens)", en: "Macro photography", cn: "微距摄影" },
+                    { sub: "镜头焦段 (Lens)", en: "Fisheye lens", cn: "鱼眼镜头" },
+                    { sub: "镜头焦段 (Lens)", en: "Panorama", cn: "全景" },
+                    
+                    // Aperture & Effects
+                    { sub: "光圈特效 (Effects)", en: "Depth of field", cn: "景深(背景虚化)" },
+                    { sub: "光圈特效 (Effects)", en: "Bokeh", cn: "光斑/虚化" },
+                    { sub: "光圈特效 (Effects)", en: "F/1.8", cn: "F1.8大光圈" },
+                    { sub: "光圈特效 (Effects)", en: "F/2.8", cn: "F2.8光圈" },
+                    { sub: "光圈特效 (Effects)", en: "F/16", cn: "F16小光圈(全清晰)" },
+                    { sub: "光圈特效 (Effects)", en: "Motion blur", cn: "运动模糊" },
+                    { sub: "光圈特效 (Effects)", en: "Long exposure", cn: "长曝光(光轨)" },
+                    { sub: "光圈特效 (Effects)", en: "Double exposure", cn: "双重曝光" },
+                    { sub: "光圈特效 (Effects)", en: "Chromatic aberration", cn: "色差(故障感)" },
+                    { sub: "光圈特效 (Effects)", en: "Vignetting", cn: "暗角" },
+                    
+                    // Film Stock & Brand
+                    { sub: "胶片与品牌 (Film)", en: "Film grain", cn: "胶片颗粒" },
+                    { sub: "胶片与品牌 (Film)", en: "Kodak Portra 400", cn: "柯达Portra 400(人像)" },
+                    { sub: "胶片与品牌 (Film)", en: "Kodak Gold 200", cn: "柯达Gold 200(暖色)" },
+                    { sub: "胶片与品牌 (Film)", en: "Fujifilm Superia", cn: "富士Superia(冷色)" },
+                    { sub: "胶片与品牌 (Film)", en: "CineStill 800T", cn: "电影卷(夜景光晕)" },
+                    { sub: "胶片与品牌 (Film)", en: "Polaroid", cn: "拍立得" },
+                    { sub: "胶片与品牌 (Film)", en: "Instax", cn: "拍立得Mini" },
+                    { sub: "胶片与品牌 (Film)", en: "VHS", cn: "录像带画质" },
+                    { sub: "胶片与品牌 (Film)", en: "GoPro", cn: "运动相机" },
+                    { sub: "胶片与品牌 (Film)", en: "Drone footage", cn: "无人机航拍" },
+                    { sub: "胶片与品牌 (Film)", en: "Leica", cn: "徕卡味" },
+                    { sub: "胶片与品牌 (Film)", en: "Hasselblad", cn: "哈苏中画幅" }
+                ]
+            },
+            clothes: {
+                icon: "👗",
+                title: "材质与服饰 (Clothes)",
+                desc: "材质的物理属性描述。从丝绸到装甲。",
+                tip: "描述 'Texture' (纹理) 往往比描述颜色更高级。",
+                keywords: [
+                    // Fabric
+                    { sub: "面料材质 (Fabric)", en: "Silk", cn: "丝绸" },
+                    { sub: "面料材质 (Fabric)", en: "Satin", cn: "缎面" },
+                    { sub: "面料材质 (Fabric)", en: "Lace", cn: "蕾丝" },
+                    { sub: "面料材质 (Fabric)", en: "Denim", cn: "牛仔" },
+                    { sub: "面料材质 (Fabric)", en: "Leather", cn: "皮革" },
+                    { sub: "面料材质 (Fabric)", en: "Latex", cn: "乳胶/漆皮" },
+                    { sub: "面料材质 (Fabric)", en: "Velvet", cn: "天鹅绒" },
+                    { sub: "面料材质 (Fabric)", en: "Wool", cn: "羊毛" },
+                    { sub: "面料材质 (Fabric)", en: "Knitted", cn: "针织" },
+                    { sub: "面料材质 (Fabric)", en: "Chiffon", cn: "雪纺" },
+                    { sub: "面料材质 (Fabric)", en: "Tweed", cn: "粗花呢" },
+                    { sub: "面料材质 (Fabric)", en: "Cotton", cn: "棉" },
+                    { sub: "面料材质 (Fabric)", en: "Linen", cn: "亚麻" },
+                    
+                    // Special
+                    { sub: "特殊材质 (Special)", en: "Transparent", cn: "透明" },
+                    { sub: "特殊材质 (Special)", en: "Translucent", cn: "半透明" },
+                    { sub: "特殊材质 (Special)", en: "Metallic", cn: "金属质感" },
+                    { sub: "特殊材质 (Special)", en: "Plastic", cn: "塑料" },
+                    { sub: "特殊材质 (Special)", en: "Rubber", cn: "橡胶" },
+                    { sub: "特殊材质 (Special)", en: "Wet clothes", cn: "湿透的衣服" },
+                    { sub: "特殊材质 (Special)", en: "Holographic fabric", cn: "镭射幻彩面料" },
+                    { sub: "特殊材质 (Special)", en: "Sequin", cn: "亮片" },
+                    { sub: "特殊材质 (Special)", en: "Fur", cn: "皮草" },
+                    { sub: "特殊材质 (Special)", en: "Feather", cn: "羽毛" },
+                    
+                    // Items
+                    { sub: "服饰单品 (Item)", en: "White shirt", cn: "白衬衫" },
+                    { sub: "服饰单品 (Item)", en: "Dress", cn: "连衣裙" },
+                    { sub: "服饰单品 (Item)", en: "Suit", cn: "西装" },
+                    { sub: "服饰单品 (Item)", en: "School uniform", cn: "校服" },
+                    { sub: "服饰单品 (Item)", en: "Kimono", cn: "和服" },
+                    { sub: "服饰单品 (Item)", en: "Hanfu", cn: "汉服" },
+                    { sub: "服饰单品 (Item)", en: "Cheongsam", cn: "旗袍" },
+                    { sub: "服饰单品 (Item)", en: "Maid outfit", cn: "女仆装" },
+                    { sub: "服饰单品 (Item)", en: "Bikini", cn: "比基尼" },
+                    { sub: "服饰单品 (Item)", en: "Armor", cn: "盔甲" },
+                    { sub: "服饰单品 (Item)", en: "Mecha suit", cn: "机甲" },
+                    { sub: "服饰单品 (Item)", en: "Hoodie", cn: "连帽衫" }
+                ]
+            },
+            env: {
+                icon: "🌍",
+                title: "环境与构图 (Env)",
+                desc: "故事发生的场所。从赛博城市到静谧森林。",
+                tip: "‘Dutch angle’ (荷兰角) 能瞬间增加动感。‘Rule of thirds’ (三分法) 保证构图稳重。",
+                keywords: [
+                    // Composition
+                    { sub: "构图 (Comp)", en: "Rule of thirds", cn: "三分法" },
+                    { sub: "构图 (Comp)", en: "Symmetrical", cn: "对称构图" },
+                    { sub: "构图 (Comp)", en: "Center frame", cn: "居中构图" },
+                    { sub: "构图 (Comp)", en: "Dutch angle", cn: "荷兰角(倾斜)" },
+                    { sub: "构图 (Comp)", en: "From below", cn: "仰视(大长腿)" },
+                    { sub: "构图 (Comp)", en: "From above", cn: "俯视" },
+                    { sub: "构图 (Comp)", en: "Eye level", cn: "平视" },
+                    { sub: "构图 (Comp)", en: "Dynamic angle", cn: "动态角度" },
+                    { sub: "构图 (Comp)", en: "Cowboy shot", cn: "七分身(膝盖以上)" },
+                    { sub: "构图 (Comp)", en: "Full body", cn: "全身" },
+                    { sub: "构图 (Comp)", en: "Upper body", cn: "上半身" },
+                    { sub: "构图 (Comp)", en: "Close up", cn: "特写" },
+                    { sub: "构图 (Comp)", en: "Wide shot", cn: "广角大场景" },
+                    
+                    // Nature
+                    { sub: "自然场景 (Nature)", en: "Nature", cn: "自然" },
+                    { sub: "自然场景 (Nature)", en: "Forest", cn: "森林" },
+                    { sub: "自然场景 (Nature)", en: "Beach", cn: "海滩" },
+                    { sub: "自然场景 (Nature)", en: "Ocean", cn: "海洋" },
+                    { sub: "自然场景 (Nature)", en: "Mountains", cn: "山脉" },
+                    { sub: "自然场景 (Nature)", en: "Sky", cn: "天空" },
+                    { sub: "自然场景 (Nature)", en: "Clouds", cn: "云层" },
+                    { sub: "自然场景 (Nature)", en: "Flower field", cn: "花海" },
+                    { sub: "自然场景 (Nature)", en: "Desert", cn: "沙漠" },
+                    { sub: "自然场景 (Nature)", en: "Snow", cn: "雪景" },
+                    { sub: "自然场景 (Nature)", en: "Rain", cn: "雨天" },
+                    
+                    // Urban/Indoor
+                    { sub: "城市与室内 (Urban)", en: "Street", cn: "街道" },
+                    { sub: "城市与室内 (Urban)", en: "Cityscape", cn: "城市景观" },
+                    { sub: "城市与室内 (Urban)", en: "Night city", cn: "夜之城" },
+                    { sub: "城市与室内 (Urban)", en: "Cyberpunk city", cn: "赛博城市" },
+                    { sub: "城市与室内 (Urban)", en: "Bedroom", cn: "卧室" },
+                    { sub: "城市与室内 (Urban)", en: "Living room", cn: "客厅" },
+                    { sub: "城市与室内 (Urban)", en: "Classroom", cn: "教室" },
+                    { sub: "城市与室内 (Urban)", en: "Library", cn: "图书馆" },
+                    { sub: "城市与室内 (Urban)", en: "Cafe", cn: "咖啡馆" },
+                    { sub: "城市与室内 (Urban)", en: "Bar", cn: "酒吧" },
+                    { sub: "城市与室内 (Urban)", en: "Ruins", cn: "废墟" },
+                    { sub: "城市与室内 (Urban)", en: "Laboratory", cn: "实验室" },
+                    
+                    // Background
+                    { sub: "背景类型 (Bg)", en: "Simple background", cn: "简单背景" },
+                    { sub: "背景类型 (Bg)", en: "White background", cn: "白背景" },
+                    { sub: "背景类型 (Bg)", en: "Black background", cn: "黑背景" },
+                    { sub: "背景类型 (Bg)", en: "Gradient background", cn: "渐变背景" },
+                    { sub: "背景类型 (Bg)", en: "Blurred background", cn: "模糊背景" }
+                ]
+            },
+            negative: {
+                icon: "🚫",
+                title: "负面提示 (Negative)",
+                desc: "不希望出现的内容。通用模板，防止崩坏。",
+                tip: "‘Bad hands’ 和 ‘Text’ 是最常用的负面词。",
+                keywords: [
+                    // Quality Bad
+                    { sub: "低质量 (Quality)", en: "Worst quality", cn: "最差质量" },
+                    { sub: "低质量 (Quality)", en: "Low quality", cn: "低质量" },
+                    { sub: "低质量 (Quality)", en: "Normal quality", cn: "普通质量" },
+                    { sub: "低质量 (Quality)", en: "Lowres", cn: "低分辨率" },
+                    { sub: "低质量 (Quality)", en: "Jpeg artifacts", cn: "JPEG压缩噪点" },
+                    { sub: "低质量 (Quality)", en: "Blurry", cn: "模糊" },
+                    { sub: "低质量 (Quality)", en: "Grainy", cn: "噪点过大" },
+                    { sub: "低质量 (Quality)", en: "Pixelated", cn: "马赛克" },
+                    
+                    // Anatomy Bad
+                    { sub: "人体崩坏 (Body)", en: "Bad anatomy", cn: "人体结构错误" },
+                    { sub: "人体崩坏 (Body)", en: "Bad hands", cn: "坏手" },
+                    { sub: "人体崩坏 (Body)", en: "Missing fingers", cn: "缺手指" },
+                    { sub: "人体崩坏 (Body)", en: "Extra fingers", cn: "多指" },
+                    { sub: "人体崩坏 (Body)", en: "Fused fingers", cn: "手指粘连" },
+                    { sub: "人体崩坏 (Body)", en: "Too many fingers", cn: "指头太多" },
+                    { sub: "人体崩坏 (Body)", en: "Extra limbs", cn: "多肢体" },
+                    { sub: "人体崩坏 (Body)", en: "Missing limbs", cn: "肢体缺失" },
+                    { sub: "人体崩坏 (Body)", en: "Mutation", cn: "变异" },
+                    { sub: "人体崩坏 (Body)", en: "Deformed", cn: "畸形" },
+                    { sub: "人体崩坏 (Body)", en: "Bad face", cn: "坏脸" },
+                    { sub: "人体崩坏 (Body)", en: "Ugly", cn: "丑陋" },
+                    
+                    // Unwanted
+                    { sub: "不想出现 (Unwanted)", en: "Watermark", cn: "水印" },
+                    { sub: "不想出现 (Unwanted)", en: "Text", cn: "文字" },
+                    { sub: "不想出现 (Unwanted)", en: "Signature", cn: "签名" },
+                    { sub: "不想出现 (Unwanted)", en: "Username", cn: "用户名" },
+                    { sub: "不想出现 (Unwanted)", en: "Artist name", cn: "艺术家名字" },
+                    { sub: "不想出现 (Unwanted)", en: "Cropped", cn: "被裁剪" },
+                    { sub: "不想出现 (Unwanted)", en: "Out of frame", cn: "画框外" },
+                    { sub: "不想出现 (Unwanted)", en: "Draft", cn: "草稿" }
+                ]
+            }
+        };
+
+        // State
+        let currentCategory = 'quality';
+        let selectedPrompts = [];
+
+        // Elements
+        const desktopNav = document.getElementById('desktop-nav-container');
+        const mobileNav = document.getElementById('mobile-nav-container');
+        const keywordsContainer = document.getElementById('keywords-container');
+        const activeIcon = document.getElementById('active-cat-icon');
+        const activeTitle = document.getElementById('active-cat-title');
+        const activeDesc = document.getElementById('active-cat-desc');
+        const activeTip = document.getElementById('active-cat-tip');
+        const promptDisplay = document.getElementById('prompt-display');
+
+        // Init
+        function init() {
+            renderNav();
+            renderCategory('quality');
+            initMiniChart();
+            updateTotalCount();
+        }
+
+        function updateTotalCount() {
+            let total = 0;
+            Object.values(promptData).forEach(cat => total += cat.keywords.length);
+            document.getElementById('total-count').innerText = total + '+';
+        }
+
+        // --- Navigation Rendering ---
+        function renderNav() {
+            // Desktop
+            desktopNav.innerHTML = '';
+            Object.keys(promptData).forEach(key => {
+                const cat = promptData[key];
+                const isActive = key === currentCategory;
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left px-4 py-3 rounded-lg flex items-center justify-between transition group ${
+                    isActive ? 'nav-btn-active' : 'bg-transparent hover:bg-gray-50 text-gray-600'
+                }`;
+                btn.onclick = () => renderCategory(key);
+                btn.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="text-xl">${cat.icon}</span>
+                        <span class="font-bold text-sm">${cat.title.split('(')[0]}</span>
+                    </div>
+                `;
+                desktopNav.appendChild(btn);
+            });
+
+            // Mobile
+            mobileNav.innerHTML = '';
+            Object.keys(promptData).forEach(key => {
+                const cat = promptData[key];
+                const isActive = key === currentCategory;
+                const btn = document.createElement('button');
+                btn.className = `px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition border ${
+                    isActive 
+                    ? 'bg-[#8B7355] text-white border-[#8B7355] shadow-sm' 
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-[#Cfb898]'
+                }`;
+                btn.onclick = () => {
+                    renderCategory(key);
+                    btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                };
+                btn.innerHTML = `${cat.icon} ${cat.title.split('(')[0]}`;
+                mobileNav.appendChild(btn);
+            });
+        }
+
+        // --- Category Rendering ---
+        function renderCategory(key) {
+            currentCategory = key;
+            
+            // Visual Update Nav
+            Array.from(desktopNav.children).forEach((btn, idx) => {
+                const isMatch = Object.keys(promptData)[idx] === key;
+                btn.className = `w-full text-left px-4 py-3 rounded-lg flex items-center justify-between transition group ${
+                    isMatch ? 'nav-btn-active' : 'bg-transparent hover:bg-gray-50 text-gray-600'
+                }`;
+            });
+            Array.from(mobileNav.children).forEach((btn, idx) => {
+                const isMatch = Object.keys(promptData)[idx] === key;
+                btn.className = `px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition border ${
+                    isMatch 
+                    ? 'bg-[#8B7355] text-white border-[#8B7355] shadow-sm' 
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-[#Cfb898]'
+                }`;
+            });
+
+            const data = promptData[key];
+            activeIcon.innerText = data.icon;
+            activeTitle.innerText = data.title;
+            activeDesc.innerText = data.desc;
+            activeTip.innerText = data.tip;
+
+            // Grouping logic
+            const grouped = {};
+            data.keywords.forEach(item => {
+                if (!grouped[item.sub]) grouped[item.sub] = [];
+                grouped[item.sub].push(item);
+            });
+
+            keywordsContainer.innerHTML = '';
+            
+            Object.keys(grouped).forEach((subCat, index) => {
+                const groupSection = document.createElement('div');
+                groupSection.className = "bg-white p-5 rounded-xl border border-gray-100 shadow-sm transition hover:shadow-md";
+                groupSection.style.animation = `fadeIn 0.3s ease-out ${index * 0.05}s forwards`;
+                groupSection.style.opacity = '0';
+
+                // Subheader
+                const headerDiv = document.createElement('div');
+                headerDiv.className = "mb-4 pb-2 border-b border-gray-100 flex items-center";
+                headerDiv.innerHTML = `<span class="text-xs font-bold text-[#8B7355] uppercase tracking-widest bg-[#FDFBF7] px-2 py-1 rounded">${subCat}</span>`;
+                groupSection.appendChild(headerDiv);
+
+                // Grid
+                const grid = document.createElement('div');
+                grid.className = "grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3";
+
+                grouped[subCat].forEach(item => {
+                    const chip = document.createElement('button');
+                    chip.className = "keyword-chip w-full text-left bg-gray-50 p-2.5 rounded-lg group relative overflow-hidden";
+                    chip.onclick = () => addToPrompt(item.en);
+                    chip.innerHTML = `
+                        <div class="font-bold text-gray-800 text-sm mb-0.5 pr-4 truncate">${item.en}</div>
+                        <div class="text-xs text-gray-500 truncate">${item.cn}</div>
+                        <div class="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#Cfb898] opacity-0 group-hover:opacity-100 transition"></div>
+                    `;
+                    grid.appendChild(chip);
+                });
+
+                groupSection.appendChild(grid);
+                keywordsContainer.appendChild(groupSection);
+            });
+        }
+
+        // --- Builder Logic ---
+        function addToPrompt(text) {
+            if (!selectedPrompts.includes(text)) {
+                selectedPrompts.push(text);
+                updatePromptDisplay();
+            } else {
+                const chips = document.querySelectorAll('#prompt-display span');
+                chips.forEach(chip => {
+                    if (chip.innerText.includes(text)) {
+                        chip.classList.add('ring-2', 'ring-red-400', 'bg-red-50');
+                        setTimeout(() => chip.classList.remove('ring-2', 'ring-red-400', 'bg-red-50'), 400);
+                    }
+                });
+            }
+        }
+
+        function updatePromptDisplay() {
+            if (selectedPrompts.length === 0) {
+                promptDisplay.innerHTML = '<span class="text-gray-400 italic select-none flex items-center h-full">👇 点击下方海量词汇，此处自动组装咒语...</span>';
+                return;
+            }
+            
+            promptDisplay.innerHTML = selectedPrompts.map((p, index) => `
+                <span class="inline-flex items-center bg-white border border-gray-200 shadow-sm text-gray-800 px-2 py-1.5 rounded-md text-sm m-1 transition hover:border-red-300 group cursor-default">
+                    ${p}
+                    <button onclick="removePrompt(${index})" class="ml-2 text-gray-300 hover:text-red-500 focus:outline-none transition">×</button>
+                </span>
+            `).join('');
+            
+            promptDisplay.scrollTop = promptDisplay.scrollHeight;
+        }
+
+        function removePrompt(index) {
+            selectedPrompts.splice(index, 1);
+            updatePromptDisplay();
+        }
+
+        function clearPrompts() {
+            selectedPrompts = [];
+            updatePromptDisplay();
+        }
+
+        function copyPrompts() {
+            if (selectedPrompts.length === 0) return;
+            const fullString = selectedPrompts.join(', ');
+            navigator.clipboard.writeText(fullString).then(() => {
+                const btn = document.querySelector('button[onclick="copyPrompts()"] span');
+                const originalText = btn.innerText;
+                btn.innerText = "✅ 已复制!";
+                setTimeout(() => btn.innerText = originalText, 2000);
+            });
+        }
+
+        function initMiniChart() {
+            const ctx = document.getElementById('miniChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'polarArea',
+                data: {
+                    labels: ['Quality', 'Light', 'Subject', 'Style', 'Camera'],
+                    datasets: [{
+                        data: [10, 8, 9, 7, 6],
+                        backgroundColor: [
+                            'rgba(139, 115, 85, 0.7)',
+                            'rgba(207, 184, 152, 0.7)',
+                            'rgba(74, 74, 74, 0.7)',
+                            'rgba(212, 196, 183, 0.7)',
+                            'rgba(229, 224, 216, 0.7)'
+                        ],
+                        borderWidth: 1,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: { ticks: { display: false }, grid: { display: false } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
